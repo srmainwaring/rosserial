@@ -68,7 +68,7 @@ if __name__=="__main__":
 
     if port_name == "tcp" :
         server = RosSerialServer(tcp_portnum, fork_server)
-        rospy.loginfo("Waiting for socket connections on port %d" % tcp_portnum)
+        rospy.loginfo("Waiting for socket connections on port {}".format(tcp_portnum))
         try:
             server.listen()
         except KeyboardInterrupt:
@@ -76,28 +76,36 @@ if __name__=="__main__":
         finally:
             rospy.loginfo("Shutting down")
             for process in multiprocessing.active_children():
-                rospy.loginfo("Shutting down process %r", process)
+                rospy.loginfo("Shutting down process {!r}".format(process))
                 process.terminate()
                 process.join()
             rospy.loginfo("All done")
 
     else :          # Use serial port
         while not rospy.is_shutdown():
-            rospy.loginfo("Connecting to %s at %d baud" % (port_name,baud) )
+            rospy.loginfo("Connecting to {} at {} baud".format(port_name, baud))
             try:
                 client = SerialClient(port_name, baud, fix_pyserial_for_test=fix_pyserial_for_test)
                 client.run()
             except KeyboardInterrupt:
+                rospy.loginfo("Keyboard Interrupt")
                 break
-            except SerialException:
+            except SerialException as e:
+                rospy.loginfo("Serial Exception: {}".format(e.strerror))
                 sleep(1.0)
                 continue
             except OSError:
+                rospy.loginfo("OS Error: {}".format(e.strerror))
                 sleep(1.0)
                 continue
+            except SystemExit as e:
+                rospy.logwarn("Shutting down...")
+                if client.port.is_open:
+                    client.port.close()
+                sleep(1.0)
+                break
             except:
-                rospy.logwarn("Unexpected Error.%s", sys.exc_info()[0])
-                client.port.close()
+                rospy.logwarn("Unexpected Error %s", sys.exc_info()[0])
                 sleep(1.0)
                 continue
 
